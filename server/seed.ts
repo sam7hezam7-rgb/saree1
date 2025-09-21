@@ -251,21 +251,63 @@ export async function seedDefaultData() {
     }
 
     // Create default admin user
-    const adminUser = {
-      name: "مدير النظام",
-      email: "admin@alsarie.com",
-      username: "admin",
-      phone: "+967777777777",
-      userType: "admin",
-      isActive: true,
-    };
+    const adminUsers = [
+      {
+        name: "مدير النظام الرئيسي",
+        email: "admin@alsarie-one.com",
+        username: "admin",
+        phone: "+967777777777",
+        password: "admin123456", // كلمة مرور غير مشفرة للاختبار
+        userType: "admin",
+        isActive: true,
+      },
+      {
+        name: "مدير فرعي",
+        email: "manager@alsarie-one.com", 
+        username: "manager",
+        phone: "+967777777778",
+        password: "manager123",
+        userType: "admin",
+        isActive: true,
+      }
+    ];
 
-    console.log('👤 Seeding admin user...');
-    const createdAdmin = await dbStorage.createAdminUser(adminUser);
-    console.log(`  ✓ Created admin user: ${createdAdmin.name}`);
+    console.log('👤 Seeding admin users...');
+    for (const adminData of adminUsers) {
+      const createdAdmin = await dbStorage.createAdminUser(adminData);
+      console.log(`  ✓ Created admin user: ${createdAdmin.name}`);
+    }
+
+    // Create default drivers
+    const defaultDrivers = [
+      {
+        name: "أحمد محمد السائق",
+        phone: "+967771234567",
+        password: "driver123", // كلمة مرور غير مشفرة للاختبار
+        isAvailable: true,
+        isActive: true,
+        currentLocation: "صنعاء، شارع الزبيري",
+        earnings: "2500",
+      },
+      {
+        name: "علي حسن السائق",
+        phone: "+967779876543",
+        password: "driver456",
+        isAvailable: true,
+        isActive: true,
+        currentLocation: "صنعاء، شارع السبعين",
+        earnings: "3200",
+      }
+    ];
+
+    console.log('🚗 Seeding drivers...');
+    for (const driverData of defaultDrivers) {
+      const createdDriver = await dbStorage.createDriver(driverData);
+      console.log(`  ✓ Created driver: ${createdDriver.name}`);
+    }
 
     console.log('✅ Database seeding completed successfully!');
-    console.log(`📊 Seeded: ${categories.length} categories, ${restaurants.length} restaurants, ${menuItems.length} menu items, ${uiSettings.length} UI settings, 1 admin user`);
+    console.log(`📊 Seeded: ${categories.length} categories, ${restaurants.length} restaurants, ${menuItems.length} menu items, ${uiSettings.length} UI settings, ${adminUsers.length} admin users, ${defaultDrivers.length} drivers`);
 
   } catch (error) {
     console.error('❌ Database seeding failed:', error);
