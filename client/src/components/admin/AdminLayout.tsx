@@ -95,6 +95,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   };
 
   const handleLogout = () => {
+    // مسح بيانات المدير من localStorage
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
     window.location.href = '/';
   };
 

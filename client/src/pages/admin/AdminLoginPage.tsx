@@ -38,14 +38,29 @@ export default function AdminLoginPage() {
     }
 
     try {
-      const result = await login(formData.email, formData.password, 'admin');
+      const response = await fetch('/api/auth/admin/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const result = await response.json();
       
       if (result.success) {
+        // حفظ بيانات المدير في localStorage
+        localStorage.setItem('admin_token', result.token);
+        localStorage.setItem('admin_user', JSON.stringify(result.user));
         setLocation('/admin');
       } else {
         setError(result.message || 'فشل في تسجيل الدخول');
       }
     } catch (error) {
+      console.error('Login error:', error);
       setError('حدث خطأ غير متوقع');
     } finally {
       setIsSubmitting(false);

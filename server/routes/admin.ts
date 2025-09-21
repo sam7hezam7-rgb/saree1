@@ -592,7 +592,7 @@ router.put("/orders/:id/status", async (req: any, res) => {
 // إدارة السائقين
 router.get("/drivers", async (req, res) => {
   try {
-    const drivers = await storage.getDrivers();
+    const drivers = await dbStorage.getDrivers();
     
     // ترتيب السائقين حسب تاريخ الإنشاء (الأحدث أولاً)
     const sortedDrivers = drivers.sort((a, b) => 
@@ -608,19 +608,36 @@ router.get("/drivers", async (req, res) => {
 
 router.post("/drivers", async (req, res) => {
   try {
+    console.log("Driver creation request data:", req.body);
+    
+    // التحقق من البيانات المطلوبة
+    if (!req.body.name || !req.body.phone || !req.body.password) {
+      return res.status(400).json({ 
+        error: "البيانات المطلوبة ناقصة", 
+        details: "الاسم ورقم الهاتف وكلمة المرور مطلوبة"
+      });
+    }
+    
     // التحقق من صحة البيانات مع الحقول المطلوبة
-    const validatedData = insertDriverSchema.parse({
+    const driverData = {
       ...req.body,
       // التأكد من وجود الحقول الافتراضية
       isAvailable: req.body.isAvailable !== undefined ? req.body.isAvailable : true,
       isActive: req.body.isActive !== undefined ? req.body.isActive : true,
-      earnings: req.body.earnings || "0"
-    });
+      earnings: req.body.earnings || "0",
+      userType: "driver",
+      currentLocation: req.body.currentLocation || null
+    };
     
-    const newDriver = await storage.createDriver(validatedData);
+    console.log("Processed driver data:", driverData);
+    
+    const validatedData = insertDriverSchema.parse(driverData);
+    
+    const newDriver = await dbStorage.createDriver(validatedData);
     res.status(201).json(newDriver);
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error("Driver validation errors:", error.errors);
       return res.status(400).json({ 
         error: "بيانات السائق غير صحيحة", 
         details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
@@ -638,7 +655,7 @@ router.put("/drivers/:id", async (req, res) => {
     // التحقق من صحة البيانات المحدثة (جزئي)
     const validatedData = insertDriverSchema.partial().parse(req.body);
     
-    const updatedDriver = await storage.updateDriver(id, validatedData);
+    const updatedDriver = await dbStorage.updateDriver(id, validatedData);
     
     if (!updatedDriver) {
       return res.status(404).json({ error: "السائق غير موجود" });
@@ -661,7 +678,7 @@ router.delete("/drivers/:id", async (req, res) => {
   try {
     const { id } = req.params;
     
-    const success = await storage.deleteDriver(id);
+    const success = await dbStorage.deleteDriver(id);
     
     if (!success) {
       return res.status(404).json({ error: "السائق غير موجود" });
@@ -1229,6 +1246,16 @@ router.put("/profile", async (req: any, res) => {
 // تم حذف مسار تغيير كلمة المرور - لا حاجة له بعد إزالة نظام المصادقة
 
 // UI Settings Routes
+router.get("/ui-settings", async (req, res) => {
+  try {
+    const settings = await dbStorage.getUiSettings();
+    res.json(settings);
+  } catch (error) {
+    console.error('خطأ في جلب إعدادات الواجهة:', error);
+    res.status(500).json({ error: "خطأ في الخادم" });
+  }
+});
+
 router.put("/ui-settings/:key", async (req, res) => {
   try {
     const { key } = req.params;
@@ -1249,38 +1276,10 @@ router.put("/ui-settings/:key", async (req, res) => {
       });
     }
 
-    // Update or create the setting
-    const existingSetting = await db
-      .select()
-      .from(systemSettings)
-      .where(eq(systemSettings.key, key))
-      .limit(1);
-
-    let setting;
-    if (existingSetting.length > 0) {
-      // Update existing setting
-      const [updatedSetting] = await db
-        .update(systemSettings)
-        .set({ 
-          value, 
-          updatedAt: new Date() 
-        })
-        .where(eq(systemSettings.key, key))
-        .returning();
-      setting = updatedSetting;
-    } else {
-      // Create new setting
-      const [newSetting] = await db
-        .insert(systemSettings)
-        .values({
-          key,
-          value,
-          category: 'ui',
-          description: `UI setting: ${key}`,
-          isActive: true
-        })
-        .returning();
-      setting = newSetting;
+    const setting = await dbStorage.updateUiSetting(key, value);
+    
+    if (!setting) {
+      return res.status(404).json({ error: "فشل في تحديث الإعداد" });
     }
 
     res.json(setting);

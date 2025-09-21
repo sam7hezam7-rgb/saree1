@@ -25,7 +25,7 @@ export function UiSettingsProvider({ children }: { children: React.ReactNode }) 
 
   const loadSettings = async () => {
     try {
-      const response = await fetch('/api/ui-settings');
+      const response = await fetch('/api/admin/ui-settings');
       if (response.ok) {
         const settingsData: UiSetting[] = await response.json();
         const settingsMap = settingsData.reduce((acc, setting) => {
@@ -43,7 +43,7 @@ export function UiSettingsProvider({ children }: { children: React.ReactNode }) 
 
   const updateSetting = async (key: string, value: string) => {
     try {
-      const response = await fetch(`/api/ui-settings/${key}`, {
+      const response = await fetch(`/api/admin/ui-settings/${key}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

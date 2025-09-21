@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { dbStorage } from "./db";
 import { log } from "./viteServer";
-// تم حذف نظام المصادقة - لا حاجة لهذه الواردات
+import authRoutes from "./routes/auth";
 import { customerRoutes } from "./routes/customer";
 import driverRoutes from "./routes/driver";
 import ordersRoutes from "./routes/orders";
@@ -1001,6 +1001,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // تم حذف مسارات المصادقة - لا حاجة لها
+  
+  // Register auth routes
+  app.use("/api/auth", authRoutes);
   
   // Register admin routes
   app.use("/api/admin", adminRoutes);

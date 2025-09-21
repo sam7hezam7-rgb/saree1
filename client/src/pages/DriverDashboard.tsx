@@ -155,7 +155,9 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onLogout }) =>
   }, []);
 
   const handleLogout = () => {
-    logout();
+    // مسح بيانات السائق من localStorage
+    localStorage.removeItem('driver_token');
+    localStorage.removeItem('driver_user');
     onLogout();
   };
 

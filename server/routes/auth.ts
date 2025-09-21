@@ -1,39 +1,84 @@
 import express from 'express';
-import { unifiedAuthService } from '../auth';
+import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
+import { dbStorage } from '../db';
+import { adminUsers, drivers } from '@shared/schema';
+import { eq, or } from 'drizzle-orm';
 
 const router = express.Router();
 
-// تسجيل الدخول الموحد
-router.post('/login', async (req, res) => {
+// تسجيل الدخول للمديرين
+router.post('/admin/login', async (req, res) => {
   try {
-    const { identifier, password, userType } = req.body;
+    const { email, password } = req.body;
 
-    if (!identifier || !password) {
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'المعرف وكلمة المرور مطلوبان'
+        message: 'البريد الإلكتروني وكلمة المرور مطلوبان'
       });
     }
 
-    console.log('🔐 محاولة تسجيل دخول:', { identifier, userType });
+    console.log('🔐 محاولة تسجيل دخول مدير:', email);
 
-    const result = await unifiedAuthService.login(identifier, password, userType);
+    // البحث عن المدير في قاعدة البيانات
+    const adminResult = await dbStorage.db
+      .select()
+      .from(adminUsers)
+      .where(
+        or(
+          eq(adminUsers.email, email),
+          eq(adminUsers.username, email)
+        )
+      )
+      .limit(1);
 
-    if (result.success) {
-      res.json({
-        success: true,
-        token: result.token,
-        user: result.user,
-        message: result.message
-      });
-    } else {
-      res.status(401).json({
+    if (adminResult.length === 0) {
+      return res.status(401).json({
         success: false,
-        message: result.message
+        message: 'بيانات الدخول غير صحيحة'
       });
     }
+
+    const admin = adminResult[0];
+
+    // التحقق من حالة الحساب
+    if (!admin.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'الحساب غير مفعل'
+      });
+    }
+
+    // التحقق من كلمة المرور (مقارنة مباشرة بدون تشفير)
+    const isPasswordValid = password === admin.password;
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'بيانات الدخول غير صحيحة'
+      });
+    }
+
+    // إنشاء رمز مميز بسيط
+    const token = randomUUID();
+
+    console.log('🎉 تم تسجيل الدخول بنجاح للمدير:', admin.name);
+    
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: admin.id,
+        name: admin.name,
+        email: admin.email,
+        userType: 'admin'
+      },
+      message: 'تم تسجيل الدخول بنجاح'
+    });
+
   } catch (error) {
-    console.error('خطأ في مسار تسجيل الدخول:', error);
+    console.error('خطأ في تسجيل دخول المدير:', error);
     res.status(500).json({
       success: false,
       message: 'حدث خطأ في الخادم'
@@ -41,34 +86,73 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// التحقق من صحة الرمز المميز
-router.post('/validate', async (req, res) => {
+// تسجيل الدخول للسائقين
+router.post('/driver/login', async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const { phone, password } = req.body;
+
+    if (!phone || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'رقم الهاتف وكلمة المرور مطلوبان'
+      });
+    }
+
+    console.log('🔐 محاولة تسجيل دخول سائق:', phone);
+
+    // البحث عن السائق في قاعدة البيانات
+    const driverResult = await dbStorage.db
+      .select()
+      .from(drivers)
+      .where(eq(drivers.phone, phone))
+      .limit(1);
+
+    if (driverResult.length === 0) {
       return res.status(401).json({
         success: false,
-        message: 'رمز مميز غير صحيح'
+        message: 'بيانات الدخول غير صحيحة'
       });
     }
 
-    const token = authHeader.split(' ')[1];
-    const validation = await unifiedAuthService.validateSession(token);
+    const driver = driverResult[0];
 
-    if (validation.valid && validation.user) {
-      res.json({
-        success: true,
-        user: validation.user,
-        message: 'الرمز صحيح'
-      });
-    } else {
-      res.status(401).json({
+    // التحقق من حالة الحساب
+    if (!driver.isActive) {
+      return res.status(401).json({
         success: false,
-        message: 'رمز منتهي الصلاحية أو غير صحيح'
+        message: 'الحساب غير مفعل'
       });
     }
+
+    // التحقق من كلمة المرور (مقارنة مباشرة بدون تشفير)
+    const isPasswordValid = password === driver.password;
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'بيانات الدخول غير صحيحة'
+      });
+    }
+
+    // إنشاء رمز مميز بسيط
+    const token = randomUUID();
+
+    console.log('🎉 تم تسجيل الدخول بنجاح للسائق:', driver.name);
+    
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: driver.id,
+        name: driver.name,
+        phone: driver.phone,
+        userType: 'driver'
+      },
+      message: 'تم تسجيل الدخول بنجاح'
+    });
+
   } catch (error) {
-    console.error('خطأ في التحقق من الرمز المميز:', error);
+    console.error('خطأ في تسجيل دخول السائق:', error);
     res.status(500).json({
       success: false,
       message: 'حدث خطأ في الخادم'
@@ -79,28 +163,10 @@ router.post('/validate', async (req, res) => {
 // تسجيل الخروج
 router.post('/logout', async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        message: 'رمز مميز غير صحيح'
-      });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const logoutSuccess = await unifiedAuthService.logout(token);
-
-    if (logoutSuccess) {
-      res.json({
-        success: true,
-        message: 'تم تسجيل الخروج بنجاح'
-      });
-    } else {
-      res.status(400).json({
-        success: false,
-        message: 'فشل في تسجيل الخروج'
-      });
-    }
+    res.json({
+      success: true,
+      message: 'تم تسجيل الخروج بنجاح'
+    });
   } catch (error) {
     console.error('خطأ في تسجيل الخروج:', error);
     res.status(500).json({
@@ -109,91 +175,5 @@ router.post('/logout', async (req, res) => {
     });
   }
 });
-
-// إنشاء مستخدم جديد (للتطوير فقط)
-router.post('/register', async (req, res) => {
-  try {
-    const { name, username, email, phone, password, userType } = req.body;
-
-    if (!name || !password || !userType) {
-      return res.status(400).json({
-        success: false,
-        message: 'الاسم وكلمة المرور ونوع المستخدم مطلوبة'
-      });
-    }
-
-    const result = await unifiedAuthService.createUser({
-      name,
-      username,
-      email,
-      phone,
-      password,
-      userType,
-      isActive: true
-    });
-
-    if (result.success) {
-      res.status(201).json({
-        success: true,
-        user: result.user,
-        message: result.message
-      });
-    } else {
-      res.status(400).json({
-        success: false,
-        message: result.message
-      });
-    }
-  } catch (error) {
-    console.error('خطأ في التسجيل:', error);
-    res.status(500).json({
-      success: false,
-      message: 'حدث خطأ في الخادم'
-    });
-  }
-});
-
-// Middleware للتحقق من المصادقة
-export const requireAuth = (allowedUserTypes?: ('customer' | 'driver' | 'admin')[]) => {
-  return async (req: any, res: any, next: any) => {
-    try {
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-          success: false,
-          message: 'غير مصرح - رمز مميز مطلوب'
-        });
-      }
-
-      const token = authHeader.split(' ')[1];
-      const validation = await unifiedAuthService.validateSession(token);
-
-      if (!validation.valid || !validation.user) {
-        return res.status(401).json({
-          success: false,
-          message: 'رمز منتهي الصلاحية أو غير صحيح'
-        });
-      }
-
-      // التحقق من نوع المستخدم إذا تم تحديده
-      if (allowedUserTypes && !allowedUserTypes.includes(validation.user.userType)) {
-        return res.status(403).json({
-          success: false,
-          message: 'ليس لديك صلاحية للوصول إلى هذا المورد'
-        });
-      }
-
-      req.user = validation.user;
-      req.token = token;
-      next();
-    } catch (error) {
-      console.error('خطأ في middleware المصادقة:', error);
-      res.status(500).json({
-        success: false,
-        message: 'حدث خطأ في الخادم'
-      });
-    }
-  };
-};
 
 export default router;

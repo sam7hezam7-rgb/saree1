@@ -45,16 +45,16 @@ export default function AdminUiSettings() {
   const [pendingChanges, setPendingChanges] = useState<Record<string, string>>({});
 
   const { data: uiSettings, isLoading } = useQuery<UiSettings[]>({
-    queryKey: ['/api/ui-settings'],
+    queryKey: ['/api/admin/ui-settings'],
   });
 
   const updateSettingMutation = useMutation({
     mutationFn: async ({ key, value }: { key: string; value: string }) => {
-      const response = await apiRequest('PUT', `/api/ui-settings/${key}`, { value });
+      const response = await apiRequest('PUT', `/api/admin/ui-settings/${key}`, { value });
       return response.json();
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/ui-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/ui-settings'] });
       // Remove from pending changes
       setPendingChanges(prev => {
         const newChanges = { ...prev };

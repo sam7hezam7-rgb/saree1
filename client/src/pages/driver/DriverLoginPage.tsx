@@ -38,14 +38,29 @@ export default function DriverLoginPage() {
     }
 
     try {
-      const result = await login(formData.phone, formData.password, 'driver');
+      const response = await fetch('/api/auth/driver/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: formData.phone,
+          password: formData.password,
+        }),
+      });
+
+      const result = await response.json();
       
       if (result.success) {
-        setLocation('/delivery');
+        // حفظ بيانات السائق في localStorage
+        localStorage.setItem('driver_token', result.token);
+        localStorage.setItem('driver_user', JSON.stringify(result.user));
+        setLocation('/driver');
       } else {
         setError(result.message || 'فشل في تسجيل الدخول');
       }
     } catch (error) {
+      console.error('Driver login error:', error);
       setError('حدث خطأ غير متوقع');
     } finally {
       setIsSubmitting(false);

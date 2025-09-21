@@ -304,7 +304,7 @@ export class DatabaseStorage {
   // UI Settings (using systemSettings)
   async getUiSettings(): Promise<SystemSettings[]> {
     try {
-      const result = await this.db.select().from(systemSettings).where(eq(systemSettings.isActive, true));
+      const result = await this.db.select().from(systemSettings);
       // Ensure we always return an array, even if result is null or undefined
       return Array.isArray(result) ? result : [];
     } catch (error) {
@@ -315,17 +315,39 @@ export class DatabaseStorage {
 
   async getUiSetting(key: string): Promise<SystemSettings | undefined> {
     const [setting] = await this.db.select().from(systemSettings).where(
-      and(eq(systemSettings.key, key), eq(systemSettings.isActive, true))
+      eq(systemSettings.key, key)
     );
     return setting;
   }
 
   async updateUiSetting(key: string, value: string): Promise<SystemSettings | undefined> {
-    const [updated] = await this.db.update(systemSettings)
-      .set({ value, updatedAt: new Date() })
-      .where(eq(systemSettings.key, key))
-      .returning();
-    return updated;
+    try {
+      // Try to update existing setting
+      const [updated] = await this.db.update(systemSettings)
+        .set({ value, updatedAt: new Date() })
+        .where(eq(systemSettings.key, key))
+        .returning();
+      
+      if (updated) {
+        return updated;
+      }
+      
+      // If no rows were updated, create new setting
+      const [newSetting] = await this.db.insert(systemSettings)
+        .values({
+          key,
+          value,
+          category: 'ui',
+          description: `UI setting: ${key}`,
+          isActive: true
+        })
+        .returning();
+      
+      return newSetting;
+    } catch (error) {
+      console.error('Error updating UI setting:', error);
+      return undefined;
+    }
   }
 
   async createUiSetting(setting: InsertSystemSettings): Promise<SystemSettings> {

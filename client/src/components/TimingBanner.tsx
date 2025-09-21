@@ -3,7 +3,7 @@ import { Clock } from 'lucide-react';
 
 export default function TimingBanner() {
   const { data: uiSettings } = useQuery({
-    queryKey: ['/api/ui-settings'],
+    queryKey: ['/api/admin/ui-settings'],
   });
 
   // البحث عن إعدادات أوقات العمل
